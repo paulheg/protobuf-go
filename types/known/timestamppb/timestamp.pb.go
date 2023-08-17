@@ -73,12 +73,20 @@
 package timestamppb
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	sql "database/sql"
+	driver "database/sql/driver"
 	reflect "reflect"
 	sync "sync"
 	time "time"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
+
+
+var _ sql.Scanner = &Timestamp{}
+
+var _ driver.Valuer = &Timestamp{}
 
 // A Timestamp represents a point in time independent of any time zone or local
 // calendar, encoded as a count of seconds and fractions of seconds at
@@ -205,6 +213,29 @@ func (x *Timestamp) AsTime() time.Time {
 func (x *Timestamp) IsValid() bool {
 	return x.check() == 0
 }
+
+// Value implements driver.Valuer.
+func (t Timestamp) Value() (driver.Value, error) {
+	a := Timestamp(t)
+	return a.AsTime(), nil
+}
+
+// Scan implements sql.Scanner.
+func (t *Timestamp) Scan(src interface{}) error {
+
+	var source Timestamp
+
+	switch src.(type) {
+	case time.Time:
+		source = *New(src.(time.Time))
+	default:
+		return protoimpl.X.NewError("invalid type for timestamppb.Timestamp")
+	}
+
+	*t = Timestamp(source)
+	return nil
+}
+
 
 // CheckValid returns an error if the timestamp is invalid.
 // In particular, it checks whether the value represents a date that is
